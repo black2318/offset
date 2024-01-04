@@ -1,0 +1,81 @@
+import numpy as np # linear algebra
+import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.feature_selection import mutual_info_regression, SelectKBest
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.model_selection import train_test_split, cross_val_score, KFold 
+from sklearn.model_selection import GridSearchCV, RepeatedKFold
+from sklearn.ensemble import AdaBoostRegressor, GradientBoostingRegressor 
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
+import sklearn
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import GridSearchCV
+import statsmodels.api as sm
+from xgboost import XGBRegressor
+import shap
+
+# setting up os env in kaggle 
+import os
+for dirname, _, filenames in os.walk('/kaggle/input'):
+    for filename in filenames:
+        print(os.path.join(dirname, filename))
+
+# read the csv file and load first 5 rows in the platform 
+df = pd.read_csv("WildBlueberryPollinationSimulationData.csv", 
+                 index_col='Row#')
+# clustering using kmeans algorithm
+X_clus = features_df[['honeybee','osmia','bumbles','andrena']]
+
+# standardize the dataset using standard scaler
+scaler = StandardScaler()
+scaler.fit(X_clus)
+X_new_clus = scaler.transform(X_clus)
+
+# K means clustering 
+clustering = KMeans(n_clusters=3, random_state=42)
+clustering.fit(X_new_clus)
+n_cluster = clustering.labels_
+
+# add new feature to feature_Df 
+features_df['n_cluster'] = n_cluster
+df['n_cluster'] = n_cluster
+features_df['n_cluster'].value_counts()
+features_set = ['AverageRainingDays','clonesize','AverageOfLowerTRange',
+               'AverageOfUpperTRange','honeybee','osmia','bumbles','andrena','n_cluster']
+
+# final dataframe  
+X = features_df[features_set]
+y = tar.round(1)
+
+# train and test dataset to build baseline model using GBT and RFs by scaling the dataset
+mx_scaler = MinMaxScaler()
+X_scaled = pd.DataFrame(mx_scaler.fit_transform(X))
+X_scaled.columns = X.columns
+model_dict = {"abr": AdaBoostRegressor(), 
+              "gbr": GradientBoostingRegressor(), 
+              "rfr": RandomForestRegressor()
+             }
+
+# Cross value scores of the models
+for key, val in model_dict.items():
+    print(f"cross validation for {key}")
+    score = cross_val_score(val, X_scaled, y, cv=5, scoring='neg_mean_squared_error')
+    mean_score = -np.sum(score)/5
+    sqrt_score = np.sqrt(mean_score) 
+    print(sqrt_score)
+# remove the 'n_cluster' feature from the dataset
+X_train_n = X_train.drop('n_cluster', axis=1)
+X_test_n = X_test.drop('n_cluster', axis=1)
+
+# train a model for flask API creation =
+xgb_model = XGBRegressor(max_depth=9, min_child_weight=7, subsample=1.0)
+xgb_model.fit(X_train_n, y_train)
+pr = xgb_model.predict(X_test_n)
+err = mean_absolute_error(y_test, pr)
+rmse_n = np.sqrt(mean_squared_error(y_test, pr))
+
+# after training, save the model using joblib library
+joblib.dump(xgb_model, 'wbb_xgb_model2.joblib')
